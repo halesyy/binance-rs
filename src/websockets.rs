@@ -122,8 +122,13 @@ impl<'a> WebSockets<'a> {
         self.handle_msg(msg)
     }
 
+    // TODO This puts in the full stream, then puts in the message
+    // TODO underneath. I want to make this interpret the stream
+    // TODO as well - think this through.
+
     pub fn handle_msg(&mut self, msg: &str) -> Result<()> {
         let value: serde_json::Value = serde_json::from_str(msg)?;
+
 
         if let Some(data) = value.get("data") {
             self.handle_msg(&data.to_string())?;
