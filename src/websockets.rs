@@ -55,7 +55,7 @@ pub enum WebsocketEvent {
 
 pub struct WebSockets<'a> {
     pub socket: Option<(WebSocket<MaybeTlsStream<TcpStream>>, Response)>,
-    handler: Box<dyn FnMut(WebsocketEvent) -> Result<()> + 'a>,
+    handler: Box<dyn FnMut(WebsocketEvent, String) -> Result<()> + 'a>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -79,7 +79,7 @@ enum Events {
 impl<'a> WebSockets<'a> {
     pub fn new<Callback>(handler: Callback) -> WebSockets<'a>
     where
-        Callback: FnMut(WebsocketEvent) -> Result<()> + 'a,
+        Callback: FnMut(WebsocketEvent, String) -> Result<()> + 'a,
     {
         WebSockets {
             socket: None,
@@ -129,13 +129,20 @@ impl<'a> WebSockets<'a> {
     pub fn handle_msg(&mut self, msg: &str) -> Result<()> {
         let value: serde_json::Value = serde_json::from_str(msg)?;
 
+        // Print recursive message.
+        // println!("{:?}", value);
 
-        if let Some(data) = value.get("data") {
-            self.handle_msg(&data.to_string())?;
-            return Ok(());
-        }
+        let stream = value.get("stream").unwrap();
+        let data = value.get("data").unwrap().to_owned();
+        
+        // println!("{:?}", stream);
+    
+        // if let Some(data) = value.get("data") {
+        //     self.handle_msg(&data.to_string())?;
+        //     return Ok(());
+        // }
 
-        if let Ok(events) = serde_json::from_value::<Events>(value) {
+        if let Ok(events) = serde_json::from_value::<Events>(data) {
             let action = match events {
                 Events::DayTickerEventAll(v) => WebsocketEvent::DayTickerAll(v),
                 Events::WindowTickerEventAll(v) => WebsocketEvent::WindowTickerAll(v),
@@ -151,7 +158,7 @@ impl<'a> WebSockets<'a> {
                 Events::OrderBook(v) => WebsocketEvent::OrderBook(v),
                 Events::DepthOrderBookEvent(v) => WebsocketEvent::DepthOrderBook(v),
             };
-            (self.handler)(action)?;
+            (self.handler)(action, stream.to_string())?;
         }
         Ok(())
     }
